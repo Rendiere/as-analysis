@@ -1,7 +1,7 @@
 # White Swan Ankylosing Spondilytis 
 
 ## Overview
-
+This project deals with the analysis of data of patients with Ankylosing Spondilytis. 
 
 ## Getting Started
 
@@ -29,4 +29,11 @@ Download the data from the AWS servers and process them into a more useable form
 
 ```bash
 python setup.py
+```
+
+### Inspect Jupyter Notebooks
+Lunch Jupyter and go through the notebooks
+
+```bash
+jupyter notebook
 ```
