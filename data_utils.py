@@ -17,7 +17,7 @@ def process_data():
 
     # Aggregate the normalized bs data by year and save to disk
     agg_normed_df = (normed_df.groupby('norm_years')
-                     .agg({'BS': 'mean', 'norm_years': len})
+                     .agg({'BS': ['mean','std'], 'norm_years': len})
                      .rename(columns={'norm_years': 'count'}).round(2)
                      )
 
