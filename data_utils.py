@@ -1,10 +1,6 @@
 import pandas as pd
 import config as cfg
-
-def download_data():
-    # TODO
-    pass
-
+import s3fs
 
 def process_data():
     f_normed = f'{cfg.DATA_DIR}/bs_normed_full.xls'
