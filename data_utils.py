@@ -1,6 +1,6 @@
 import pandas as pd
 import config as cfg
-import s3fs
+#import s3fs
 
 def process_data():
     f_normed = f'{cfg.DATA_DIR}/bs_normed_full.xls'
@@ -20,7 +20,12 @@ def process_data():
     agg_normed_df.to_excel(f_normed_agg)
 
 
-def normalize_timeline(basmi_df):
+def normalize_timeline(basmi_df, agg_dic={'BS': 'mean'}):
+    """
+    TODO: Add support for agg dic by including in impute_missing_values function
+    
+    
+    """
     def get_norm_years(df):
         dates = df.index.get_level_values('Date')
         start_date = min(dates)
@@ -80,16 +85,18 @@ def normalize_timeline(basmi_df):
 
         return fixed_bs_df
 
-    # Turn the Drug column into binary
-    basmi_df['Drug_Indicator'] = basmi_df['Drug'].notnull().map({False: 0, True: 1})
-    basmi_df.drop('Drug', axis=1, inplace=True)
+    
 
     # Sub-select BS score
     normed_bs_df = basmi_df.copy()
+    # Turn the Drug column into binary
+    normed_bs_df['Drug_Indicator'] = normed_bs_df['Drug'].notnull().map({False: 0, True: 1})
+    normed_bs_df.drop('Drug', axis=1, inplace=True)
+    
     normed_bs_df['norm_years'] = normed_bs_df.groupby(level=0)['BS'].transform(get_norm_years)
 
     # Bin data per year for each patient
-    normed_bs_df = normed_bs_df.groupby(['patient_id', 'norm_years']).agg({'BS': 'mean'}).reset_index(level=1)
+    normed_bs_df = normed_bs_df.groupby(['patient_id', 'norm_years']).agg(agg_dic).reset_index(level=1)
     # Round floats to 2 digits
     normed_bs_df = normed_bs_df.round(2)
 
