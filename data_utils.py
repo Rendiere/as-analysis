@@ -1,10 +1,6 @@
 import pandas as pd
 import config as cfg
-
-def download_data():
-    # TODO
-    pass
-
+#import s3fs
 
 def process_data():
     f_normed = f'{cfg.DATA_DIR}/bs_normed_full.xls'
@@ -24,7 +20,12 @@ def process_data():
     agg_normed_df.to_excel(f_normed_agg)
 
 
-def normalize_timeline(basmi_df):
+def normalize_timeline(basmi_df, agg_dic={'BS': 'mean'}):
+    """
+    TODO: Add support for agg dic by including in impute_missing_values function
+    
+    
+    """
     def get_norm_years(df):
         dates = df.index.get_level_values('Date')
         start_date = min(dates)
@@ -84,16 +85,20 @@ def normalize_timeline(basmi_df):
 
         return fixed_bs_df
 
-    # Turn the Drug column into binary
-    basmi_df['Drug_Indicator'] = basmi_df['Drug'].notnull().map({False: 0, True: 1})
-    basmi_df.drop('Drug', axis=1, inplace=True)
+    
 
     # Sub-select BS score
     normed_bs_df = basmi_df.copy()
+    # Turn the Drug column into binary
+    normed_bs_df['Drug_Indicator'] = normed_bs_df['Drug'].notnull().map({False: 0, True: 1})
+    normed_bs_df.drop('Drug', axis=1, inplace=True)
+    
+    # By subselecting BS here we negate agg_dic
+    # TODO - revisit this
     normed_bs_df['norm_years'] = normed_bs_df.groupby(level=0)['BS'].transform(get_norm_years)
 
     # Bin data per year for each patient
-    normed_bs_df = normed_bs_df.groupby(['patient_id', 'norm_years']).agg({'BS': 'mean'}).reset_index(level=1)
+    normed_bs_df = normed_bs_df.groupby(['patient_id', 'norm_years']).agg(agg_dic).reset_index(level=1)
     # Round floats to 2 digits
     normed_bs_df = normed_bs_df.round(2)
 
@@ -101,3 +106,68 @@ def normalize_timeline(basmi_df):
     normed_bs_df = impute_missing_values(normed_bs_df)
 
     return normed_bs_df
+
+
+
+def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
+    """
+    Split basmi_df into drugs / no_drugs df
+    
+    """
+    
+    if type(basmi_df['Drug']) != bool:
+        print('Converted Drug column to binary')
+        basmi_df['Drug'] = basmi_df['Drug'].notnull()
+
+    no_drugs_dfs = []
+    drugs_dfs = []
+    i = 0
+    for patient_id, patient_df in basmi_df.groupby('patient_id'):
+
+        # if we don't have demographic info, skip this patient
+        if patient_id not in demo_df.index.values:
+            continue
+
+        
+
+        no_drugs_df = patient_df[~patient_df['Drug']]
+        drugs_df = patient_df[patient_df['Drug']]
+
+        if print_:
+            print(patient_id,'\n')
+            print('No Drugs:')
+            print(no_drugs_df)
+            print('\nDrugs:')
+            print(drugs_df)
+            print('\n\n')
+
+        # Start date of periods for which patient took biologics
+        drugs_dates = drugs_df.index.get_level_values('Date')
+        no_drugs_dates = no_drugs_df.index.get_level_values('Date')
+
+        drugs_start = min(drugs_dates) if not drugs_dates.empty else None
+        no_drugs_start = min(no_drugs_dates) if not no_drugs_dates.empty else None
+
+        # if a patient used drugs and then stopped, skip this patient
+        if drugs_start and no_drugs_start and drugs_start < no_drugs_start:
+            print('patient {} had invalid data'.format(patient_id))
+            continue
+
+        # If patient had taken drugs, save the data
+        if not drugs_df.empty:
+            drugs_dfs.append(drugs_df)
+
+        # If patient had data for when not taking drugs, save the data
+        if not no_drugs_df.empty:
+            no_drugs_dfs.append(no_drugs_df)
+
+        # Circuit breaker
+        if break_at and i == break_at:
+                break
+
+        i += 1
+
+    no_drugs_df = pd.concat(no_drugs_dfs)
+    drugs_df = pd.concat(drugs_dfs)
+    
+    return drugs_df, no_drugs_df
