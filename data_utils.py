@@ -122,13 +122,13 @@ def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
     no_drugs_dfs = []
     drugs_dfs = []
     i = 0
-    for patient_id, patient_df in basmi_df.groupby('patient_id'):
+    
+    df = basmi_df.copy()
+    for patient_id, patient_df in df.groupby('patient_id'):
 
         # if we don't have demographic info, skip this patient
         if patient_id not in demo_df.index.values:
             continue
-
-        
 
         no_drugs_df = patient_df[~patient_df['Drug']]
         drugs_df = patient_df[patient_df['Drug']]
@@ -142,8 +142,8 @@ def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
             print('\n\n')
 
         # Start date of periods for which patient took biologics
-        drugs_dates = drugs_df.index.get_level_values('Date')
-        no_drugs_dates = no_drugs_df.index.get_level_values('Date')
+        drugs_dates = drugs_df.Date
+        no_drugs_dates = no_drugs_df.Date
 
         drugs_start = min(drugs_dates) if not drugs_dates.empty else None
         no_drugs_start = min(no_drugs_dates) if not no_drugs_dates.empty else None
