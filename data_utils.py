@@ -1,6 +1,6 @@
 import pandas as pd
 import config as cfg
-#import s3fs
+import matplotlib.pyplot as plt
 
 def process_data():
     f_normed = f'{cfg.DATA_DIR}/bs_normed_full.xls'
@@ -89,6 +89,11 @@ def normalize_timeline(basmi_df, agg_dic={'BS': 'mean'}):
 
     # Sub-select BS score
     normed_bs_df = basmi_df.copy()
+    
+    if 'Date' in normed_bs_df.columns:
+        normed_bs_df.reset_index(inplace=True)
+        normed_bs_df.set_index(['patient_id','Date'], inplace=True)
+    
     # Turn the Drug column into binary
     normed_bs_df['Drug_Indicator'] = normed_bs_df['Drug'].notnull().map({False: 0, True: 1})
     normed_bs_df.drop('Drug', axis=1, inplace=True)
@@ -122,13 +127,13 @@ def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
     no_drugs_dfs = []
     drugs_dfs = []
     i = 0
-    for patient_id, patient_df in basmi_df.groupby('patient_id'):
+    
+    df = basmi_df.copy()
+    for patient_id, patient_df in df.groupby('patient_id'):
 
         # if we don't have demographic info, skip this patient
         if patient_id not in demo_df.index.values:
             continue
-
-        
 
         no_drugs_df = patient_df[~patient_df['Drug']]
         drugs_df = patient_df[patient_df['Drug']]
@@ -142,8 +147,8 @@ def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
             print('\n\n')
 
         # Start date of periods for which patient took biologics
-        drugs_dates = drugs_df.index.get_level_values('Date')
-        no_drugs_dates = no_drugs_df.index.get_level_values('Date')
+        drugs_dates = drugs_df.Date
+        no_drugs_dates = no_drugs_df.Date
 
         drugs_start = min(drugs_dates) if not drugs_dates.empty else None
         no_drugs_start = min(no_drugs_dates) if not no_drugs_dates.empty else None
@@ -171,3 +176,22 @@ def split_cohorts_by_drugs(basmi_df, demo_df, print_=False, break_at=None):
     drugs_df = pd.concat(drugs_dfs)
     
     return drugs_df, no_drugs_df
+
+
+
+def plot_bs_over_time(mean_bs, std_bs, num_patients,title=''):
+    fig = plt.figure(figsize=(12,8))
+    ax1 = plt.subplot(211)
+    plt.plot(mean_bs)
+    plt.fill_between(mean_bs.index, y1=mean_bs+std_bs, y2=mean_bs-std_bs, color='lightsalmon', alpha=0.6)
+    plt.setp(ax1.get_xticklabels(), fontsize=0)
+    plt.title(title)
+    ax1.set_ylabel('BS Score')
+
+    ax2 = plt.subplot(212, sharex=ax1)
+    plt.plot(num_patients)
+    plt.title('Number of patients in study over time')
+    ax2.set_xlabel('Time in Study')
+    ax2.set_ylabel('Number of patients')
+
+    plt.show()
