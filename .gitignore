@@ -1,4 +1,5 @@
 data/*.xls*
+data/*.csv
 
 .ipynb_checkpoints/
 .idea/
